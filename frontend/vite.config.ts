@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base:
+    process.env.NODE_ENV === 'production'
+      ? process.env.API_BASE_URL
+      : 'http://localhost:3000/',
   resolve: {
     alias: {
       '@': path.resolve(import.meta.dir, './src')
