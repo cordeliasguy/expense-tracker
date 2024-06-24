@@ -15,7 +15,7 @@ export default defineConfig({
       '/api': {
         target:
           process.env.NODE_ENV === 'production'
-            ? process.env.API_BASE_URL
+            ? 'https://expense-tracker-backend-112a.onrender.com'
             : 'http://localhost:3000',
         changeOrigin: true
       }
