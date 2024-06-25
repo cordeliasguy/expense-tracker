@@ -13,10 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target:
-          process.env.NODE_ENV === 'production'
-            ? 'https://expense-tracker-backend-112a.onrender.com'
-            : 'http://localhost:3000',
+        target: 'http://localhost:3000',
         changeOrigin: true
       }
     }
