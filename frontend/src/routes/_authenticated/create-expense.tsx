@@ -2,10 +2,21 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Calendar } from '@/components/ui/calendar'
+import { toast } from 'sonner'
 
 import { useForm } from '@tanstack/react-form'
 import type { FieldApi } from '@tanstack/react-form'
-import { api } from '@/lib/api'
+import {
+  createExpense,
+  getAllExpensesQueryOptions,
+  loadingCreateExpenseQueryOptions
+} from '@/lib/api'
+import { useQueryClient } from '@tanstack/react-query'
+
+import { zodValidator } from '@tanstack/zod-form-adapter'
+
+import { createExpenseSchema } from '@server/sharedTypes'
 
 export const Route = createFileRoute('/_authenticated/create-expense')({
   component: CreateExpense
@@ -24,23 +35,48 @@ function FieldInfo({ field }: { field: FieldApi<any, any, any, any> }) {
 }
 
 function CreateExpense() {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
-
   const goToExpenses = () => navigate({ to: '/expenses' })
 
   const form = useForm({
+    validatorAdapter: zodValidator(),
     defaultValues: {
       title: '',
-      amount: ''
+      amount: '',
+      date: new Date().toISOString()
     },
     onSubmit: async ({ value }) => {
-      const res = await api.expenses.$post({ json: value })
-
-      if (!res.ok) {
-        throw new Error('Server error')
-      }
+      const existingExpenses = await queryClient.ensureQueryData(
+        getAllExpensesQueryOptions
+      )
 
       goToExpenses()
+
+      queryClient.setQueryData(loadingCreateExpenseQueryOptions.queryKey, {
+        expense: value
+      })
+
+      try {
+        const newExpense = await createExpense({ value })
+
+        queryClient.setQueryData(getAllExpensesQueryOptions.queryKey, {
+          ...existingExpenses,
+          expenses: [newExpense, ...existingExpenses.expenses]
+        })
+
+        toast.success('Expense Created', {
+          description: `Successfully created new expense: ${newExpense.id}`
+        })
+      } catch (error) {
+        console.error(error)
+
+        toast.error('Error', {
+          description: 'Failed to create new expense'
+        })
+      } finally {
+        queryClient.setQueryData(loadingCreateExpenseQueryOptions.queryKey, {})
+      }
     }
   })
 
@@ -49,7 +85,7 @@ function CreateExpense() {
       <h2>Hello /create-expense!</h2>
 
       <form
-        className="max-w-xl m-auto"
+        className="flex flex-col gap-y-4 max-w-xl m-auto"
         onSubmit={e => {
           e.preventDefault()
           e.stopPropagation()
@@ -58,8 +94,11 @@ function CreateExpense() {
       >
         <form.Field
           name="title"
+          validators={{
+            onChange: createExpenseSchema.shape.title
+          }}
           children={field => (
-            <>
+            <div>
               <Label htmlFor={field.name}>Title</Label>
               <Input
                 id={field.name}
@@ -69,14 +108,17 @@ function CreateExpense() {
                 onChange={e => field.handleChange(e.target.value)}
               />
               <FieldInfo field={field} />
-            </>
+            </div>
           )}
         />
 
         <form.Field
           name="amount"
+          validators={{
+            onChange: createExpenseSchema.shape.amount
+          }}
           children={field => (
-            <>
+            <div>
               <Label htmlFor={field.name}>Amount</Label>
               <Input
                 type="number"
@@ -87,7 +129,26 @@ function CreateExpense() {
                 onChange={e => field.handleChange(e.target.value)}
               />
               <FieldInfo field={field} />
-            </>
+            </div>
+          )}
+        />
+
+        <form.Field
+          name="date"
+          validators={{
+            onChange: createExpenseSchema.shape.date
+          }}
+          children={field => (
+            <div className="self-center">
+              <Calendar
+                mode="single"
+                selected={new Date(field.state.value)}
+                onSelect={date =>
+                  field.handleChange((date ?? new Date()).toISOString())
+                }
+                className="rounded-md border"
+              />
+            </div>
           )}
         />
 
